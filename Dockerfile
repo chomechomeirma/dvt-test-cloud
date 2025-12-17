@@ -1,48 +1,46 @@
-# Dockerfile
 FROM python:3.9-slim
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    wget \
-    curl \
-    git \
-    libpq-dev \
-    gcc \
-    postgresql-client \
-    && rm -rf /var/lib/apt/lists/*
+# Allow statements and log messages to immediately appear in the Knative logs
+ENV PYTHONUNBUFFERED True
 
-# Install DVT and dependencies
-RUN pip install --upgrade pip && \
-    pip install google-pso-data-validator \
-                psycopg2-binary \
-                pg8000 \
-                sqlalchemy \
-                google-cloud-secret-manager \
-                google-cloud-storage \
-                pandas \
-                pyarrow \
-                flask
+# Copy local code to the container image.
+ENV APP_HOME /app
+WORKDIR $APP_HOME
+COPY . ./
 
-# Create working directory
-WORKDIR /app
+# Install production dependencies.
+RUN apt-get update \
+    && apt-get install gcc -y \
+    && apt-get clean
+RUN pip install --upgrade pip
+RUN pip install Flask gunicorn google_pso_data_validator
 
-# Copy validation scripts
-COPY validation_scripts/ /app/validation_scripts/
-COPY configs/ /app/configs/
+# Hive/Impala Dependencies 
+# RUN pip install hdfs
+# RUN pip install thrift-sasl
 
-# Create entrypoint script
-RUN echo '#!/bin/bash\n\
-if [ "$1" = "validation" ]; then\n\
-    shift\n\
-    exec data-validation "$@"\n\
-elif [ "$1" = "api" ]; then\n\
-    exec python /app/validation_scripts/api_server.py\n\
-elif [ "$1" = "shell" ]; then\n\
-    exec /bin/bash\n\
-else\n\
-    echo "Usage: $0 {validation|api|shell} [args]"\n\
-    echo "Example: $0 validation column --help"\n\
-fi' > /entrypoint.sh && chmod +x /entrypoint.sh
+# Oracle Dependencies
+# if you are using Oracle you should add .rpm files
+# under your license to a directory called oracle/
+# and then uncomment the setup below.
 
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["validation", "--help"]
+# ENV ORACLE_SID oracle
+# ENV ORACLE_ODBC_VERSION 12.2
+# ENV ORACLE_HOME /usr/lib/oracle/${ORACLE_ODBC_VERSION}/client64
+
+# RUN pip install cx_Oracle
+# RUN apt-get -y install --fix-missing --upgrade vim alien unixodbc-dev wget libaio1 libaio-dev
+
+# COPY oracle/*.rpm ./
+# RUN alien -i *.rpm && rm *.rpm \
+#     && echo "/usr/lib/oracle/${ORACLE_ODBC_VERSION}/client64/lib/" > /etc/ld.so.conf.d/oracle.conf \
+#     && ln -s /usr/include/oracle/${ORACLE_ODBC_VERSION}/client64 $ORACLE_HOME/include \
+#     && ldconfig -v
+
+
+# Run the web service on container startup. Here we use the gunicorn
+# webserver, with one worker process and 8 threads.
+# For environments with multiple CPU cores, increase the number of workers
+# to be equal to the cores available.
+# Timeout is set to 0 to disable the timeouts of the workers to allow Cloud Run to handle instance scaling.
+CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 main:app
