@@ -1,0 +1,22 @@
+# configs/connections.yaml
+OracleSource:
+  source_type: Oracle
+  host: ${ORACLE_HOST}
+  port: ${ORACLE_PORT:-1521}
+  user: ${ORACLE_USER}
+  password: ${ORACLE_PASSWORD}
+  service_name: ${ORACLE_SERVICE_NAME}
+
+BigQueryTarget:
+  source_type: BigQuery
+  project_id: ${GCP_PROJECT_ID}
+  # Optional JSON key for service account
+  # keyfile: /secrets/bq-key.json
+
+PostgresTarget:
+  source_type: Postgres
+  host: ${POSTGRES_HOST}
+  port: ${POSTGRES_PORT:-5432}
+  user: ${POSTGRES_USER}
+  password: ${POSTGRES_PASSWORD}
+  database: ${POSTGRES_DB}

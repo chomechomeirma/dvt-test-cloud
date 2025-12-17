@@ -1,0 +1,25 @@
+# configs/validation_config.yaml
+validations:
+  - type: Column
+    source: OracleSource
+    target: BigQueryTarget
+    table_pair:
+      - source: HR.EMPLOYEES
+        target: hr_dataset.employees
+    filters:
+      - source: "hire_date > DATE '2023-01-01'"
+        target: "hire_date > '2023-01-01'"
+    labels:
+      project: ${GCP_PROJECT_ID}
+      env: production
+
+  - type: Row
+    source: OracleSource
+    target: BigQueryTarget
+    table_pair:
+      - source: SALES.TRANSACTIONS
+        target: sales_dataset.transactions
+    primary_keys: ['transaction_id', 'date']
+    filters:
+      - source: "date >= DATE '2024-01-01'"
+      - target: "date >= '2024-01-01'"
