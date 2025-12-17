@@ -1,0 +1,48 @@
+# Dockerfile
+FROM python:3.9-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    wget \
+    curl \
+    git \
+    libpq-dev \
+    gcc \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install DVT and dependencies
+RUN pip install --upgrade pip && \
+    pip install google-pso-data-validator \
+                psycopg2-binary \
+                pg8000 \
+                sqlalchemy \
+                google-cloud-secret-manager \
+                google-cloud-storage \
+                pandas \
+                pyarrow \
+                flask
+
+# Create working directory
+WORKDIR /app
+
+# Copy validation scripts
+COPY validation_scripts/ /app/validation_scripts/
+COPY configs/ /app/configs/
+
+# Create entrypoint script
+RUN echo '#!/bin/bash\n\
+if [ "$1" = "validation" ]; then\n\
+    shift\n\
+    exec data-validation "$@"\n\
+elif [ "$1" = "api" ]; then\n\
+    exec python /app/validation_scripts/api_server.py\n\
+elif [ "$1" = "shell" ]; then\n\
+    exec /bin/bash\n\
+else\n\
+    echo "Usage: $0 {validation|api|shell} [args]"\n\
+    echo "Example: $0 validation column --help"\n\
+fi' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["validation", "--help"]
